@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#051018">
+  <title>Listener Lab Desktop Recovery</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">LISTENER LAB / CONTROLLED ESCALATION</div>
+      <h1>DESKTOP RECOVERY</h1>
+      <p>Identify first. Verify the firmware source. Flash only when the board and manifest agree.</p>
+    </header>
+
+    <section aria-labelledby="step-1">
+      <div class="step">01</div>
+      <div class="content">
+        <h2 id="step-1">Import the Android finding</h2>
+        <textarea id="report" rows="8" placeholder="Paste the Listener Lab report here. Credentials are never part of the report."></textarea>
+        <button id="analyze" class="primary">ANALYZE REPORT</button>
+        <div id="report-result" class="result" aria-live="polite">Waiting for a report.</div>
+      </div>
+    </section>
+
+    <section id="usb-section" aria-labelledby="step-2" hidden>
+      <div class="step">02</div>
+      <div class="content">
+        <h2 id="step-2">Inspect the USB connection</h2>
+        <p>This identifies the USB bridge, not the exact voice board. The board still must match its documentation.</p>
+        <button id="connect-usb" class="secondary">SELECT USB DEVICE</button>
+        <div id="usb-result" class="result" aria-live="polite">No USB device selected.</div>
+      </div>
+    </section>
+
+    <section id="manifest-section" aria-labelledby="step-3" hidden>
+      <div class="step">03</div>
+      <div class="content">
+        <h2 id="step-3">Inspect the trusted firmware manifest</h2>
+        <label for="manifest">HTTPS ESP Web Tools manifest URL</label>
+        <input id="manifest" type="url" inputmode="url" placeholder="https://vendor.example/device/manifest.json">
+        <button id="inspect-manifest" class="secondary">INSPECT MANIFEST</button>
+        <div id="manifest-result" class="result" aria-live="polite">No manifest inspected.</div>
+      </div>
+    </section>
+
+    <section id="gate-section" aria-labelledby="step-4" hidden>
+      <div class="step warning">04</div>
+      <div class="content">
+        <h2 id="step-4">Final safety gate</h2>
+        <label class="check"><input id="backup" type="checkbox"> I backed up the existing ESPHome YAML or accept that an unknown configuration may be lost.</label>
+        <label class="check"><input id="trusted" type="checkbox"> The manifest came from the device vendor, Home Assistant, ESPHome, or my own verified build.</label>
+        <label class="check"><input id="matched" type="checkbox"> The exact board and chip family match the inspected manifest.</label>
+        <label for="confirm">Type <strong>FLASH</strong> to reveal the installer</label>
+        <input id="confirm" type="text" autocomplete="off" placeholder="FLASH">
+        <div id="installer" hidden>
+          <div class="danger-note">The next control can erase or replace firmware. Disconnect the wrong device before continuing.</div>
+          <esp-web-install-button id="web-installer">
+            <button slot="activate" class="danger">BEGIN VERIFIED FLASH</button>
+            <span slot="unsupported">Use current Chrome or Edge on a desktop with Web Serial enabled.</span>
+            <span slot="not-allowed">USB access was blocked. Use this page over HTTPS.</span>
+          </esp-web-install-button>
+        </div>
+      </div>
+    </section>
+
+    <footer>Listener Lab never supplies guessed firmware. An unknown board remains blocked.</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
+

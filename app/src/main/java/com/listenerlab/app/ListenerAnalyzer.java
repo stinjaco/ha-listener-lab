@@ -22,6 +22,10 @@ final class ListenerAnalyzer {
     private ListenerAnalyzer() {}
 
     static String createReport(ScanData data) {
+        return analyze(data).report;
+    }
+
+    static AnalysisResult analyze(ScanData data) {
         Map<String, JSONObject> states = indexBy(data.states, "entity_id");
         Map<String, JSONObject> devices = indexBy(data.devices, "id");
         Map<String, Candidate> candidates = new LinkedHashMap<>();
@@ -102,6 +106,12 @@ final class ListenerAnalyzer {
         }
         int confirmedCount = 0;
         for (Candidate candidate : useful) if (candidate.confirmed) confirmedCount++;
+        boolean firmwareCandidate = false;
+        for (Candidate candidate : useful) {
+            if (candidate.platform.contains("ESPHome") || candidate.platform.contains("Voice Preview")) {
+                firmwareCandidate = true;
+            }
+        }
         out.append("RESULT\n");
         out.append("Confirmed listeners: ").append(confirmedCount).append("\n");
         out.append("Possible voice devices: ").append(useful.size() - confirmedCount).append("\n\n");
@@ -147,8 +157,13 @@ final class ListenerAnalyzer {
             out.append("\nSCAN NOTES\n");
             for (int i = 0; i < data.warnings.length(); i++) out.append("• ").append(data.warnings.optString(i)).append("\n");
         }
-        out.append("\nPrivacy: the access token is not included in this report and is not saved by Listener Lab.");
-        return out.toString();
+        if (firmwareCandidate) {
+            out.append("\nDESKTOP RECOVERY PATH\n");
+            out.append("This hardware may support a guarded firmware workflow. Finish the read-only and Home Assistant tuning steps first. If those fail, open Listener Lab Desktop on a computer: https://stinjaco.github.io/ha-listener-lab/desktop/\n");
+            out.append("The desktop tool identifies the USB adapter and inspects a firmware manifest before it reveals any flash control. It will not invent firmware for an unknown board.\n");
+        }
+        out.append("\nPrivacy: credentials are never included in this report. OAuth credentials are encrypted with Android Keystore and can be removed with Forget saved connection; a manually pasted token is memory-only.");
+        return new AnalysisResult(out.toString(), firmwareCandidate, confirmedCount, useful.size() - confirmedCount);
     }
 
     private static void appendOptions(StringBuilder out, Candidate candidate) {

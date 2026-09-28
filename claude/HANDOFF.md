@@ -1,5 +1,15 @@
 # Handoff
 
+## 2026-09-28 — Discovery, OAuth, guarded desktop recovery, and visual redesign
+
+- Added standards-based mDNS discovery for `_home-assistant._tcp.local.` and the normal Home Assistant OAuth authorization-code flow.
+- Added Android Keystore encryption for saved access/refresh credentials plus an explicit forget action; Companion app private data is not accessed.
+- Reworked the Android screen into a hard-tech Listener Lab interface with an animated listener-map visualizer and clear scan states.
+- Added a conditional firmware-candidate result. Google/Nest/Cast speakers alone do not unlock firmware recovery.
+- Added a gated desktop Web Serial recovery tool. It requires a qualifying report, USB selection, valid HTTPS ESP Web Tools manifest, safety checks, and explicit confirmation before exposing the flash control.
+- Added a GitHub Pages OAuth client landing page and expanded JVM tests.
+- No live Home Assistant or physical device was contacted during development.
+
 ## 2026-09-28 — Initial Android discovery app
 
 - Created a native Android app with a deliberately small connection-and-report interface.

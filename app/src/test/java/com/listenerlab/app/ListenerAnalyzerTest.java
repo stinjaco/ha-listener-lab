@@ -18,11 +18,14 @@ public class ListenerAnalyzerTest {
                 "]");
         data.states = new JSONArray("[{\"entity_id\":\"assist_satellite.kitchen\",\"state\":\"idle\",\"attributes\":{\"friendly_name\":\"Kitchen Voice\"}}]");
 
-        String report = ListenerAnalyzer.createReport(data);
+        AnalysisResult result = ListenerAnalyzer.analyze(data);
+        String report = result.report;
 
         assertTrue(report.contains("Confirmed listeners: 1"));
         assertTrue(report.contains("ESP32-S3-BOX / ESPHome"));
         assertTrue(report.contains("VAD sensitivity"));
+        assertTrue(result.firmwareCandidate);
+        assertTrue(report.contains("DESKTOP RECOVERY PATH"));
     }
 
     @Test public void doesNotClaimAnOrdinaryDeviceIsAListener() throws Exception {
@@ -36,6 +39,7 @@ public class ListenerAnalyzerTest {
 
         assertTrue(report.contains("Confirmed listeners: 0"));
         assertFalse(report.contains("1. Kitchen Light"));
+        assertFalse(ListenerAnalyzer.analyze(data).firmwareCandidate);
     }
 
     @Test public void fallsBackToStateWhenRegistryIsUnavailable() throws Exception {
@@ -48,5 +52,16 @@ public class ListenerAnalyzerTest {
         assertTrue(report.contains("Confirmed listeners: 1"));
         assertTrue(report.contains("assist_satellite.office"));
     }
-}
 
+    @Test public void googleCastSpeakerDoesNotUnlockFirmware() throws Exception {
+        ScanData data = new ScanData();
+        data.config = new JSONObject("{\"version\":\"2026.9.0\"}");
+        data.states = new JSONArray("[{\"entity_id\":\"media_player.kitchen_nest\",\"state\":\"idle\",\"attributes\":{\"friendly_name\":\"Kitchen Google Nest speaker\"}}]");
+
+        AnalysisResult result = ListenerAnalyzer.analyze(data);
+
+        assertFalse(result.firmwareCandidate);
+        assertTrue(result.report.contains("Cast or Nest speaker is not automatically an Assist microphone"));
+        assertFalse(result.report.contains("DESKTOP RECOVERY PATH"));
+    }
+}

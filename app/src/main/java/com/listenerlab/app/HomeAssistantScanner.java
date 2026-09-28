@@ -14,8 +14,6 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import okhttp3.Call;
-import okhttp3.Callback;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -24,7 +22,7 @@ import okhttp3.WebSocketListener;
 
 final class HomeAssistantScanner {
     interface ResultCallback {
-        void onSuccess(String report);
+        void onSuccess(AnalysisResult result);
         void onFailure(String message);
     }
 
@@ -43,7 +41,7 @@ final class HomeAssistantScanner {
             return;
         }
         if (token == null || token.trim().length() < 20) {
-            callback.onFailure("Paste a Home Assistant long-lived access token.");
+            callback.onFailure("Home Assistant access authorization is missing.");
             return;
         }
 
@@ -54,7 +52,7 @@ final class HomeAssistantScanner {
                 data.states = getArray(baseUrl + "/api/states", token.trim());
                 RegistryCollector collector = new RegistryCollector(client, baseUrl, token.trim(), data);
                 collector.collect();
-                callback.onSuccess(ListenerAnalyzer.createReport(data));
+                callback.onSuccess(ListenerAnalyzer.analyze(data));
             } catch (Exception error) {
                 callback.onFailure(friendlyError(error));
             }
@@ -89,7 +87,7 @@ final class HomeAssistantScanner {
         }
     }
 
-    private static String normalizeUrl(String rawUrl) {
+    static String normalizeUrl(String rawUrl) {
         if (rawUrl == null) throw new IllegalArgumentException("Enter the Home Assistant address.");
         String value = rawUrl.trim();
         if (!value.startsWith("http://") && !value.startsWith("https://")) {
@@ -233,4 +231,3 @@ final class HomeAssistantScanner {
         }
     }
 }
-
