@@ -1,5 +1,13 @@
 # Handoff
 
+## 2026-09-28 — v1.1.1 startup hotfix
+
+- Removed automatic mDNS startup work; the app now opens in a safe state with `homeassistant.local` prefilled and exposes discovery as an explicit button.
+- Added an application-level crash marker that records only the app version, Android SDK, exception class, and Listener Lab stack frames—never credentials, server addresses, or Home Assistant data.
+- Added a startup recovery screen with copyable safe diagnostics and an in-app retry path.
+- Added Robolectric Android 15 regression coverage for both a normal cold start and recovery after a recorded crash.
+- Release build, JVM tests, lint, APK signing, and signature verification pass. No live Home Assistant or physical device was contacted.
+
 ## 2026-09-28 — Discovery, OAuth, guarded desktop recovery, and visual redesign
 
 - Added standards-based mDNS discovery for `_home-assistant._tcp.local.` and the normal Home Assistant OAuth authorization-code flow.

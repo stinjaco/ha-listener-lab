@@ -39,6 +39,15 @@ public final class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        String previousCrash = CrashReporter.read(this);
+        if (!previousCrash.isEmpty()) {
+            setContentView(buildRecoveryScreen(previousCrash));
+            return;
+        }
+        startNormalScreen();
+    }
+
+    private void startNormalScreen() {
         setContentView(buildScreen());
         Uri callback = getIntent().getData();
         if (isOAuthRedirect(callback)) handleOAuthRedirect(callback);
@@ -94,8 +103,14 @@ public final class MainActivity extends Activity {
         page.addView(serverLabel);
 
         address = input("Home Assistant address", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        address.setHint("Searching the local network…");
+        address.setHint("http://homeassistant.local:8123");
         page.addView(address, fullWidth(dp(54)));
+
+        Button findButton = secondaryButton("FIND LOCAL HOME ASSISTANT");
+        findButton.setOnClickListener(view -> startLocalDiscovery());
+        LinearLayout.LayoutParams findParams = fullWidth(dp(46));
+        findParams.topMargin = dp(8);
+        page.addView(findButton, findParams);
 
         scanButton = primaryButton("CONNECT + ANALYZE");
         scanButton.setOnClickListener(view -> connectAndAnalyze());
@@ -191,6 +206,13 @@ public final class MainActivity extends Activity {
             status.setText("SAVED CONNECTION FOUND / READY TO ANALYZE");
             return;
         }
+        address.setText("http://homeassistant.local:8123");
+        status.setText("SAFE START / STANDARD ADDRESS READY");
+        visualizer.setScanning(false);
+    }
+
+    private void startLocalDiscovery() {
+        if (discovery != null) discovery.stop();
         status.setText("SEARCHING LOCAL NETWORK FOR HOME ASSISTANT");
         visualizer.setScanning(true);
         discovery = new HomeAssistantDiscovery(this, new HomeAssistantDiscovery.Callback() {
@@ -212,7 +234,60 @@ public final class MainActivity extends Activity {
                 });
             }
         });
-        discovery.start();
+        try {
+            discovery.start();
+        } catch (RuntimeException error) {
+            status.setText("DISCOVERY UNAVAILABLE / USE THE ADDRESS FIELD");
+            visualizer.setScanning(false);
+            report.setText("Local discovery is not supported by this phone or network. The standard homeassistant.local address is still ready, or you can enter the address shown in the Home Assistant Companion app.");
+        }
+    }
+
+    private View buildRecoveryScreen(String diagnostic) {
+        int pad = dp(20);
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(pad, pad, pad, pad);
+        page.setBackgroundColor(0xFF051018);
+
+        TextView eyebrow = text("LISTENER LAB / SAFE START", 11, 0xFFFFD166);
+        eyebrow.setLetterSpacing(0.12f);
+        page.addView(eyebrow);
+        TextView title = text("STARTUP RECOVERY", 27, 0xFFECF7F3);
+        title.setTypeface(null, 1);
+        page.addView(title);
+        TextView explanation = text("The previous run closed unexpectedly. Credentials and Home Assistant data are not present in this diagnostic.", 14, 0xFFAFC2C6);
+        explanation.setPadding(0, dp(8), 0, dp(14));
+        page.addView(explanation);
+        TextView details = text(diagnostic, 13, 0xFFECF7F3);
+        details.setTextIsSelectable(true);
+        details.setPadding(dp(12), dp(12), dp(12), dp(12));
+        details.setBackground(panelBackground(0xFF0A1A24, 0xFF35505B));
+        page.addView(details, fullWidth(LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        Button copy = secondaryButton("COPY SAFE DIAGNOSTIC");
+        copy.setOnClickListener(view -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("Listener Lab startup diagnostic", diagnostic));
+            Toast.makeText(this, "Safe diagnostic copied.", Toast.LENGTH_SHORT).show();
+        });
+        LinearLayout.LayoutParams copyParams = fullWidth(dp(50));
+        copyParams.topMargin = dp(12);
+        page.addView(copy, copyParams);
+
+        Button retry = primaryButton("RETRY IN SAFE START");
+        retry.setOnClickListener(view -> {
+            CrashReporter.clear(this);
+            startNormalScreen();
+        });
+        LinearLayout.LayoutParams retryParams = fullWidth(dp(56));
+        retryParams.topMargin = dp(8);
+        page.addView(retry, retryParams);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.addView(page);
+        return scroll;
     }
 
     private void connectAndAnalyze() {
