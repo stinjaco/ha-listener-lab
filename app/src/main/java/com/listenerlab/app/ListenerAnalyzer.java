@@ -108,6 +108,7 @@ final class ListenerAnalyzer {
         for (Candidate candidate : useful) if (candidate.confirmed) confirmedCount++;
         boolean firmwareCandidate = false;
         for (Candidate candidate : useful) {
+            if (candidate.stale) continue;
             if (candidate.platform.contains("ESPHome") || candidate.platform.contains("Voice Preview")) {
                 firmwareCandidate = true;
             }
@@ -123,7 +124,8 @@ final class ListenerAnalyzer {
             for (Candidate candidate : useful) {
                 out.append(number++).append(". ").append(candidate.name()).append("\n");
                 out.append("   Classification: ").append(candidate.type()).append(" — ")
-                        .append(candidate.confirmed ? "confirmed listener" : "possible voice hardware").append("\n");
+                        .append(candidate.confirmed ? "confirmed listener"
+                                : candidate.stale ? "registered but not answering" : "possible voice hardware").append("\n");
                 if (candidate.satelliteEntityId != null) {
                     JSONObject state = states.get(candidate.satelliteEntityId);
                     out.append("   Listener state: ").append(state == null ? "not reported" : state.optString("state", "unknown")).append("\n");
@@ -173,7 +175,9 @@ final class ListenerAnalyzer {
             out.append("   B. Home Assistant tuning — use the exposed ").append(join(candidate.controls))
                     .append(" controls, changing one value at a time with rollback notes.\n");
         }
-        if (candidate.platform.contains("ESPHome")) {
+        if (candidate.stale) {
+            out.append("   C. Identify first — a Home Assistant entry that is not answering is no evidence of the firmware the device runs now. Confirm where the device is alive before any firmware or re-adoption step.\n");
+        } else if (candidate.platform.contains("ESPHome")) {
             out.append("   C. ESPHome advanced — back up its YAML, expose gain/noise settings as number or select controls where supported, validate the configuration, and only then offer an explicit OTA or cable flash. Never flash automatically.\n");
         } else if (candidate.platform.contains("Wyoming") || candidate.platform.contains("ReSpeaker")) {
             out.append("   C. Wyoming advanced — inspect the satellite host's microphone level, ALSA/PipeWire device, wake-word service, logs, and network latency before changing models.\n");
@@ -207,8 +211,17 @@ final class ListenerAnalyzer {
             if (text.contains("noise suppression")) addOnce(candidate.controls, "noise suppression");
             if ((text.contains("microphone") || text.contains("mic")) && text.contains("mute")) addOnce(candidate.controls, "microphone mute");
             JSONObject state = states.get(id);
-            if (state != null && "unavailable".equals(state.optString("state"))) candidate.unavailable++;
+            String value = state == null ? "" : state.optString("state");
+            // update.* entities do not prove the board is alive: ESPHome serves them from its dashboard while the device is offline.
+            if ("unavailable".equals(value)) candidate.unavailable++;
+            else if (state != null && !"unknown".equals(value) && !id.startsWith("update.")) candidate.answering++;
         }
+        JSONObject satelliteState = candidate.satelliteEntityId == null ? null : states.get(candidate.satelliteEntityId);
+        boolean satelliteDown = satelliteState != null && "unavailable".equals(satelliteState.optString("state"));
+        // Nothing of this device answers in Home Assistant: a stale entry, for example an ESPHome board that was
+        // reflashed on purpose (an LCARS room listener). It is not a listener now and must not unlock the firmware path.
+        candidate.stale = candidate.answering == 0 && (candidate.unavailable > 0 || satelliteDown);
+        if (candidate.stale) candidate.confirmed = false;
         JSONObject satelliteConfig = satelliteConfigurations.get(candidate.satelliteEntityId);
         if (satelliteConfig != null) {
             if (!satelliteConfig.optString("pipeline_entity_id").isEmpty()) addOnce(candidate.controls, "Assist pipeline");
@@ -274,7 +287,9 @@ final class ListenerAnalyzer {
         String satelliteEntityId;
         int score;
         int unavailable;
+        int answering;
         boolean confirmed;
+        boolean stale;
 
         Candidate(String key) { this.key = key; }
 
@@ -291,6 +306,7 @@ final class ListenerAnalyzer {
         String type() { return platform; }
 
         String nextCheck() {
+            if (stale) return "Not answering in Home Assistant. It may run other firmware on purpose (for example an LCARS room listener): confirm where it is alive before any firmware step.";
             if (unavailable > 0) return "Restore the unavailable device or Wi-Fi connection before tuning audio.";
             if (!confirmed) return "Open this device in Home Assistant and confirm whether it contains the microphone used for Assist.";
             if (controls.contains("VAD sensitivity")) return "Run normal-voice distance tests, then compare the exposed VAD setting without changing gain yet.";

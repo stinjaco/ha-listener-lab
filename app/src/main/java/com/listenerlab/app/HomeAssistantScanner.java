@@ -104,6 +104,9 @@ final class HomeAssistantScanner {
         if (message.contains("CLEARTEXT")) {
             return "Android blocked the local HTTP connection. Try the exact HTTPS address used in a browser.";
         }
+        if (message.contains("Unable to resolve host")) {
+            return "Could not resolve that Home Assistant name. Use the IP address shown in the Home Assistant Companion app, or tap Find Local Home Assistant.";
+        }
         if (message.contains("Failed to connect") || message.contains("timeout")) {
             return "Could not reach Home Assistant. Join the same network and check the address and port.";
         }
@@ -119,7 +122,6 @@ final class HomeAssistantScanner {
         private final Set<Integer> replies = new HashSet<>();
         private final Map<Integer, String> satelliteRequestEntities = new HashMap<>();
         private volatile int expectedReplies = 3;
-        private volatile boolean authenticated;
         private volatile String fatalMessage;
         private WebSocket socket;
 
@@ -138,8 +140,7 @@ final class HomeAssistantScanner {
             if (!finished.await(14, TimeUnit.SECONDS)) {
                 data.warnings.put("Registry scan timed out; the REST inventory is still included.");
                 socket.cancel();
-            }
-            if (fatalMessage != null && !authenticated) {
+            } else if (fatalMessage != null && replies.size() < expectedReplies) {
                 data.warnings.put(fatalMessage);
             }
         }
@@ -161,7 +162,6 @@ final class HomeAssistantScanner {
                     return;
                 }
                 if ("auth_ok".equals(type)) {
-                    authenticated = true;
                     sendCommand(webSocket, 1, "config/device_registry/list", null);
                     sendCommand(webSocket, 2, "config/entity_registry/list", null);
                     sendCommand(webSocket, 3, "assist_pipeline/pipeline/list", null);
@@ -223,6 +223,14 @@ final class HomeAssistantScanner {
                 webSocket.close(1000, "scan complete");
                 finished.countDown();
             }
+        }
+
+        @Override public void onClosing(WebSocket webSocket, int code, String reason) {
+            if (replies.size() < expectedReplies && fatalMessage == null) {
+                fatalMessage = "Home Assistant closed the registry connection early; the inventory may be incomplete.";
+            }
+            webSocket.close(1000, null);
+            finished.countDown();
         }
 
         @Override public void onFailure(WebSocket webSocket, Throwable error, Response response) {
