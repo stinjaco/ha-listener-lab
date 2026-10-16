@@ -145,6 +145,13 @@ final class OAuthManager {
         Request request = new Request.Builder().url(server + "/auth/token").post(form).build();
         try (Response response = CLIENT.newCall(request).execute()) {
             if (!response.isSuccessful() || response.body() == null) {
+                if (existingRefreshToken != null && (response.code() == 400 || response.code() == 401)) {
+                    // Home Assistant no longer accepts the saved refresh token (revoked, expired or a
+                    // reinstalled instance): drop it so the next connect starts a fresh authorization.
+                    TokenVault.clear(context);
+                    callback.onFailure(NO_CREDENTIAL);
+                    return;
+                }
                 callback.onFailure("Home Assistant authorization failed (HTTP " + response.code() + ").");
                 return;
             }

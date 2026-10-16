@@ -1,5 +1,19 @@
 # Handoff
 
+## 2026-10-16 — Audit fixes (Claude, cloud session, branch `claude/dashboard-agent-optimization-nc8fc2`)
+
+Four verified findings from the dashboard audit, left uncommitted on this branch. No Home Assistant instance or device was contacted. The cloud session has no Android SDK, so nothing was built here.
+
+- `ListenerAnalyzer.java`: a candidate is `stale` when nothing of it answers in Home Assistant: every state-bearing entity is `unavailable` (`update.*` entities do not count as alive, ESPHome serves them from its dashboard while the board is offline) or a state-only `assist_satellite` is `unavailable`. Stale candidates are not confirmed listeners, do not set `firmwareCandidate`, are classified "registered but not answering", get the next check "Not answering in Home Assistant. It may run other firmware on purpose (for example an LCARS room listener)…" and option C "Identify first". The leftover ESPHome entries of the LCARS-reflashed ATOMs therefore no longer print DESKTOP RECOVERY PATH or show the DESKTOP FIRMWARE RECOVERY button. A device whose satellite is unavailable while other entities answer is unchanged ("Restore the unavailable device…").
+- `ListenerAnalyzerTest.java`: three new tests (stale ESPHome ATOM entry with a live update entity, unavailable state-only satellite, offline satellite on a device that still answers).
+- `MainActivity.java`: FIND LOCAL HOME ASSISTANT writes the discovered URL into the address field unconditionally (the prefilled standard address defeated the `isEmpty()` guards since the v1.1.1 hotfix), and a search without result always ends in "NO BROADCAST FOUND / USING <address>" instead of leaving "SEARCHING…" on screen.
+- `OAuthManager.java`: a token refresh answered with HTTP 400 or 401 (revoked, expired or unknown refresh token) clears the saved vault and reports NO_CREDENTIAL, so CONNECT + ANALYZE reopens Home Assistant's authorization page instead of failing on every tap until FORGET SAVED CONNECTION.
+- `HomeAssistantScanner.java`: a WebSocket failure after `auth_ok` is reported in SCAN NOTES whenever registry replies are missing (the `authenticated` flag is gone); `onClosing` ends the wait at once when Home Assistant closes the socket early (note "…closed the registry connection early…") instead of the full 14 s; "Unable to resolve host" gets a message that points to the IP address or discovery.
+
+Verified here: `ListenerAnalyzer`, `ScanData`, `AnalysisResult` and `ListenerAnalyzerTest` compile with javac 21 (`--release 17`) against a throwaway org.json/JUnit stub outside the repo, all 7 analyzer tests pass, and the two new stale tests fail against the previous analyzer. The three Android/OkHttp files only passed a javac parse check (no syntax errors; the remaining errors are missing SDK symbols).
+
+Still needs Jake's PC: `powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1` (release build, JVM tests including Robolectric, lint, signing). Then on the phone: FIND fills the address field and the status no longer sticks; a scan shows the two ATOM entries as "registered but not answering" with no DESKTOP FIRMWARE RECOVERY button; after deleting the Listener Lab refresh token in Home Assistant (Profile > Security), CONNECT + ANALYZE reopens the authorization page. Bump `versionName`/`versionCode` and the APK name in `releases\` for a release.
+
 ## 2026-09-28 — v1.1.1 startup hotfix
 
 - Removed automatic mDNS startup work; the app now opens in a safe state with `homeassistant.local` prefilled and exposes discovery as an explicit button.
