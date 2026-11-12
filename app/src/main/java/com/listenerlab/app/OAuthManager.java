@@ -73,10 +73,11 @@ final class OAuthManager {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String expectedState = prefs.getString("pending_state", "");
         String server = prefs.getString("pending_server", "");
-        String state = uri == null ? "" : uri.getQueryParameter("state");
-        String code = uri == null ? "" : uri.getQueryParameter("code");
-        String error = uri == null ? "" : uri.getQueryParameter("error");
-        if (!error.isEmpty()) {
+        // getQueryParameter returns null for an absent parameter, the normal case for "error".
+        String state = uri == null ? null : uri.getQueryParameter("state");
+        String code = uri == null ? null : uri.getQueryParameter("code");
+        String error = uri == null ? null : uri.getQueryParameter("error");
+        if (error != null && !error.isEmpty()) {
             callback.onFailure("Home Assistant authorization was canceled or rejected: " + error);
             return;
         }
@@ -145,6 +146,13 @@ final class OAuthManager {
         Request request = new Request.Builder().url(server + "/auth/token").post(form).build();
         try (Response response = CLIENT.newCall(request).execute()) {
             if (!response.isSuccessful() || response.body() == null) {
+                if (existingRefreshToken != null && (response.code() == 400 || response.code() == 401)) {
+                    // Home Assistant no longer accepts the saved refresh token (revoked, expired or a
+                    // reinstalled instance): drop it so the next connect starts a fresh authorization.
+                    TokenVault.clear(context);
+                    callback.onFailure(NO_CREDENTIAL);
+                    return;
+                }
                 callback.onFailure("Home Assistant authorization failed (HTTP " + response.code() + ").");
                 return;
             }
