@@ -73,10 +73,11 @@ final class OAuthManager {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String expectedState = prefs.getString("pending_state", "");
         String server = prefs.getString("pending_server", "");
-        String state = uri == null ? "" : uri.getQueryParameter("state");
-        String code = uri == null ? "" : uri.getQueryParameter("code");
-        String error = uri == null ? "" : uri.getQueryParameter("error");
-        if (!error.isEmpty()) {
+        // getQueryParameter returns null for an absent parameter, the normal case for "error".
+        String state = uri == null ? null : uri.getQueryParameter("state");
+        String code = uri == null ? null : uri.getQueryParameter("code");
+        String error = uri == null ? null : uri.getQueryParameter("error");
+        if (error != null && !error.isEmpty()) {
             callback.onFailure("Home Assistant authorization was canceled or rejected: " + error);
             return;
         }

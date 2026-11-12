@@ -36,6 +36,7 @@ public final class MainActivity extends Activity {
     private SignalVisualizerView visualizer;
     private HomeAssistantDiscovery discovery;
     private String latestReport = "";
+    private static final String DEFAULT_ADDRESS = "http://homeassistant.local:8123";
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,15 +51,22 @@ public final class MainActivity extends Activity {
     private void startNormalScreen() {
         setContentView(buildScreen());
         Uri callback = getIntent().getData();
-        if (isOAuthRedirect(callback)) handleOAuthRedirect(callback);
-        else prepareConnection();
+        if (isOAuthRedirect(callback)) {
+            setIntent(new Intent());   // handled once: a retry or recreation must not replay it
+            handleOAuthRedirect(callback);
+        } else prepareConnection();
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
         Uri callback = intent.getData();
-        if (isOAuthRedirect(callback)) handleOAuthRedirect(callback);
+        if (!isOAuthRedirect(callback)) return;
+        if (scanButton == null) startNormalScreen();   // the recovery screen has no scan controls
+        else {
+            setIntent(new Intent());
+            handleOAuthRedirect(callback);
+        }
     }
 
     @Override protected void onDestroy() {
@@ -206,7 +214,7 @@ public final class MainActivity extends Activity {
             status.setText("SAVED CONNECTION FOUND / READY TO ANALYZE");
             return;
         }
-        address.setText("http://homeassistant.local:8123");
+        address.setText(DEFAULT_ADDRESS);
         status.setText("SAFE START / STANDARD ADDRESS READY");
         visualizer.setScanning(false);
     }
@@ -226,7 +234,7 @@ public final class MainActivity extends Activity {
 
             @Override public void onFinishedWithoutResult() {
                 runOnUiThread(() -> {
-                    if (address.getText().toString().trim().isEmpty()) address.setText("http://homeassistant.local:8123");
+                    if (address.getText().toString().trim().isEmpty()) address.setText(DEFAULT_ADDRESS);
                     status.setText("NO BROADCAST FOUND / USING " + address.getText().toString().trim());
                     visualizer.setScanning(false);
                 });
