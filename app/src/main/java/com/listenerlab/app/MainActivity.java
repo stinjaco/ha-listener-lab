@@ -218,7 +218,7 @@ public final class MainActivity extends Activity {
         discovery = new HomeAssistantDiscovery(this, new HomeAssistantDiscovery.Callback() {
             @Override public void onFound(String displayName, String url) {
                 runOnUiThread(() -> {
-                    if (address.getText().toString().trim().isEmpty()) address.setText(url);
+                    address.setText(url);
                     status.setText("DISCOVERED / " + displayName.toUpperCase());
                     visualizer.setScanning(false);
                 });
@@ -226,10 +226,8 @@ public final class MainActivity extends Activity {
 
             @Override public void onFinishedWithoutResult() {
                 runOnUiThread(() -> {
-                    if (address.getText().toString().trim().isEmpty()) {
-                        address.setText("http://homeassistant.local:8123");
-                        status.setText("NO BROADCAST FOUND / TRYING STANDARD ADDRESS");
-                    }
+                    if (address.getText().toString().trim().isEmpty()) address.setText("http://homeassistant.local:8123");
+                    status.setText("NO BROADCAST FOUND / USING " + address.getText().toString().trim());
                     visualizer.setScanning(false);
                 });
             }
